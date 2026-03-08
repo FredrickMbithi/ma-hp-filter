@@ -282,4 +282,4 @@ If you encounter issues not covered in this guide:
 
 **Last Updated:** March 8, 2026  
 **Python Version:** 3.12+  
-**Maintainer:** Project Team
+**Maintainer:** Ghost
