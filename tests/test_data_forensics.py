@@ -1,9 +1,15 @@
 """
 Unit tests for data forensics module.
 """
+import sys
+from pathlib import Path
 import pytest
 import pandas as pd
 import numpy as np
+
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from src.data.forensics import (
     load_csv_data,
     validate_data_quality,
@@ -14,7 +20,7 @@ from src.data.forensics import (
 
 def test_perfect_data():
     """Test with perfect OHLC data."""
-    dates = pd.date_range('2024-01-01', periods=100, freq='H')
+    dates = pd.date_range('2024-01-01', periods=100, freq='h')
     df = pd.DataFrame({
         'open': 100.0,
         'high': 100.5,
@@ -33,7 +39,7 @@ def test_perfect_data():
 
 def test_ohlc_violations():
     """Test detection of OHLC relationship violations."""
-    dates = pd.date_range('2024-01-01', periods=10, freq='H')
+    dates = pd.date_range('2024-01-01', periods=10, freq='h')
     df = pd.DataFrame({
         'open': 100.0,
         'high': 99.0,  # High < Open (violation!)
@@ -51,7 +57,7 @@ def test_ohlc_violations():
 
 def test_negative_spreads():
     """Test detection of negative spreads (high < low)."""
-    dates = pd.date_range('2024-01-01', periods=10, freq='H')
+    dates = pd.date_range('2024-01-01', periods=10, freq='h')
     df = pd.DataFrame({
         'open': 100.0,
         'high': 99.0,  # High < Low (impossible!)
@@ -70,8 +76,8 @@ def test_negative_spreads():
 def test_missing_bars_detection():
     """Test gap detection in time series."""
     # Create data with a gap
-    dates1 = pd.date_range('2024-01-01', periods=50, freq='H')
-    dates2 = pd.date_range('2024-01-05', periods=50, freq='H')
+    dates1 = pd.date_range('2024-01-01', periods=50, freq='h')
+    dates2 = pd.date_range('2024-01-05', periods=50, freq='h')
     dates = dates1.union(dates2)
     
     df = pd.DataFrame({
@@ -90,7 +96,7 @@ def test_missing_bars_detection():
 
 def test_outlier_detection():
     """Test detection of statistical outliers."""
-    dates = pd.date_range('2024-01-01', periods=100, freq='H')
+    dates = pd.date_range('2024-01-01', periods=100, freq='h')
     prices = 100.0 + np.random.randn(100) * 0.1
     prices[50] = 150.0  # Huge outlier (50% jump!)
     
@@ -156,7 +162,7 @@ def test_validate_real_usdjpy_data():
     """Run full validation on actual USD/JPY data."""
     try:
         df = load_csv_data("data/raw/USDJPY60.csv", has_header=False)
-        report = validate_data_quality(df, "data/raw/USDJPY60.csv", expected_freq='H')
+        report = validate_data_quality(df, "data/raw/USDJPY60.csv", expected_freq='h')
         
         print(f"\n{'='*60}")
         print(f"USD/JPY Data Quality: {report.quality_score:.2f}/100")
@@ -194,7 +200,7 @@ def test_empty_dataframe():
 
 def test_missing_columns():
     """Test handling of missing OHLC columns."""
-    dates = pd.date_range('2024-01-01', periods=10, freq='H')
+    dates = pd.date_range('2024-01-01', periods=10, freq='h')
     df = pd.DataFrame({
         'price': 100.0  # Missing OHLC columns
     }, index=dates)

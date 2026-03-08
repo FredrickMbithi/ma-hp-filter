@@ -43,17 +43,17 @@ def load_csv_data(file_path: str, has_header: bool = False) -> pd.DataFrame:
     """
     if has_header:
         df = pd.read_csv(file_path)
+        df.columns = df.columns.str.lower()
     else:
         # Assume format: Date, Time, Open, High, Low, Close, Volume
         df = pd.read_csv(
             file_path,
-            names=['date', 'time', 'open', 'high', 'low', 'close', 'volume'],
-            parse_dates={'datetime': ['date', 'time']},
-            index_col='datetime'
+            names=['date', 'time', 'open', 'high', 'low', 'close', 'volume']
         )
-    
-    # Ensure lowercase column names
-    df.columns = df.columns.str.lower()
+        # Combine date and time columns into datetime index
+        df['datetime'] = pd.to_datetime(df['date'] + ' ' + df['time'])
+        df = df.set_index('datetime')
+        df = df.drop(columns=['date', 'time'])
     
     # Sort by datetime
     df = df.sort_index()
@@ -62,7 +62,7 @@ def load_csv_data(file_path: str, has_header: bool = False) -> pd.DataFrame:
 
 
 def validate_data_quality(df: pd.DataFrame, file_path: str = "data.csv",
-                         expected_freq: str = 'H') -> DataQualityReport:
+                         expected_freq: str = 'h') -> DataQualityReport:
     """
     Comprehensive data quality validation for a single data source.
     
@@ -76,7 +76,7 @@ def validate_data_quality(df: pd.DataFrame, file_path: str = "data.csv",
     Args:
         df: DataFrame with OHLC data
         file_path: Path to file (for reporting)
-        expected_freq: Expected frequency ('H'=hourly, 'D'=daily, '15T'=15min)
+        expected_freq: Expected frequency ('h'=hourly, 'D'=daily, '15min'=15min)
     
     Returns:
         DataQualityReport with detailed validation results
@@ -229,13 +229,13 @@ def validate_data_quality(df: pd.DataFrame, file_path: str = "data.csv",
     )
 
 
-def detect_missing_bars(df: pd.DataFrame, expected_freq: str = 'H') -> List[pd.Timestamp]:
+def detect_missing_bars(df: pd.DataFrame, expected_freq: str = 'h') -> List[pd.Timestamp]:
     """
     Detect gaps in time series data.
     
     Args:
         df: DataFrame with DatetimeIndex
-        expected_freq: Expected frequency ('H'=hourly, 'D'=daily, '15T'=15min)
+        expected_freq: Expected frequency ('h'=hourly, 'D'=daily, '15min'=15min)
     
     Returns:
         List of timestamps where bars are missing
@@ -251,7 +251,7 @@ def detect_missing_bars(df: pd.DataFrame, expected_freq: str = 'H') -> List[pd.T
     )
     
     # For FX hourly/intraday data, exclude weekends
-    if expected_freq in ['H', '15T', '5T', '1T']:
+    if expected_freq in ['h', 'H', '15min', '15T', '5min', '5T', '1min', '1T']:
         # Exclude Saturday and most of Sunday (FX market closed)
         # Keep Friday until 22:00 UTC, reopen Sunday 22:00 UTC
         mask = (
@@ -376,7 +376,7 @@ def scan_data_directory(data_dir: str = "data/raw", pattern: str = "*.csv") -> D
         try:
             print(f"Processing: {csv_file.name}...")
             df = load_csv_data(str(csv_file), has_header=False)
-            report = validate_data_quality(df, str(csv_file), expected_freq='H')
+            report = validate_data_quality(df, str(csv_file), expected_freq='h')
             reports[csv_file.name] = report
             print(f"  ✓ Quality Score: {report.quality_score:.2f}/100")
         except Exception as e:
@@ -395,7 +395,7 @@ if __name__ == '__main__':
         file_path = sys.argv[1]
         print(f"Validating: {file_path}\n")
         df = load_csv_data(file_path, has_header=False)
-        report = validate_data_quality(df, file_path, expected_freq='H')
+        report = validate_data_quality(df, file_path, expected_freq='h')
         print_quality_report(report)
     else:
         # Scan data/raw directory
