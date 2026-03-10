@@ -1,6 +1,6 @@
 # Stationarity Analysis Report
 
-**Date:** March 8, 2026  
+**Date:** March 10, 2026  
 **Analyst:** MA-HP Filter Development Team
 
 ---
@@ -24,19 +24,19 @@ See Sections 4 and 5 for detailed results.
 
 ## 1. Dataset Description
 
-| Property         | Value                            |
-| ---------------- | -------------------------------- |
-| **Instrument**   | USD/JPY                          |
-| **Frequency**    | Hourly (H1)                      |
-| **Price Type**   | Close (OHLC)                     |
-| **Observations** | 2,104                            |
-| **Period**       | October 27, 2025 - March 2, 2026 |
+| Property         | Value                           |
+| ---------------- | ------------------------------- |
+| **Instrument**   | USD/JPY                         |
+| **Frequency**    | Hourly (H1)                     |
+| **Price Type**   | Close (OHLC)                    |
+| **Observations** | 12,230                          |
+| **Period**       | March 11, 2024 - March 10, 2026 |
 
 The dataset is used to evaluate whether FX prices and returns satisfy the stationarity assumptions required for time-series modeling.
 
 ### Note on Sample Size
 
-The dataset contains 2,104 hourly observations. Unit root tests may have limited statistical power in moderate sample sizes and can be sensitive to structural breaks in the time series. Results should therefore be interpreted as indicative rather than definitive.
+The dataset contains 12,230 hourly observations spanning approximately 2 years. Unit root tests are adequately powered at this sample size; results should be considered reliable.
 
 ---
 
@@ -81,8 +81,8 @@ Missing observations are removed and returns are computed using log differences 
 
 | Series      | ADF Statistic | ADF p-value | Lags | KPSS Statistic | KPSS p-value | Conclusion     |
 | ----------- | ------------- | ----------- | ---- | -------------- | ------------ | -------------- |
-| Prices      | -2.4930       | 0.1172      | 1    | 1.0165         | 0.01         | Non-stationary |
-| Log Returns | -44.0346      | 0.0000      | 0    | 0.0798         | 0.10         | Stationary     |
+| Prices      | -2.0473       | 0.2662      | 0    | 1.6991         | 0.01         | Non-stationary |
+| Log Returns | -109.9800     | 0.0000      | 0    | 0.0743         | 0.10         | Stationary     |
 
 ---
 
@@ -94,9 +94,9 @@ Missing observations are removed and returns are computed using log differences 
 
 | Metric        | Value   |
 | ------------- | ------- |
-| ADF Statistic | -2.4930 |
-| P-value       | 0.1172  |
-| Lags Used     | 1       |
+| ADF Statistic | -2.0473 |
+| P-value       | 0.2662  |
+| Lags Used     | 0       |
 
 **Critical Values (reference):**
 
@@ -108,7 +108,7 @@ Missing observations are removed and returns are computed using log differences 
 
 | Metric         | Value  |
 | -------------- | ------ |
-| KPSS Statistic | 1.0165 |
+| KPSS Statistic | 1.6991 |
 | P-value        | 0.01   |
 
 **Critical Values (reference):**
@@ -122,7 +122,7 @@ Missing observations are removed and returns are computed using log differences 
 **Apply interpretation rules using actual p-values:**
 
 ```
-ADF p-value = 0.1172 → Fail to reject unit root (p >= 0.05)
+ADF p-value = 0.2662 → Fail to reject unit root (p >= 0.05)
 KPSS p-value = 0.01 → Reject stationarity (p < 0.05)
 
 Combined conclusion: NON-STATIONARY (both tests agree)
@@ -136,17 +136,17 @@ Combined conclusion: NON-STATIONARY (both tests agree)
 
 **Instructions:** Copy exact values from notebook execution.
 
-| Metric        | Value    |
-| ------------- | -------- |
-| ADF Statistic | -44.0346 |
-| P-value       | 0.0000   |
-| Lags Used     | 0        |
+| Metric        | Value     |
+| ------------- | --------- |
+| ADF Statistic | -109.9800 |
+| P-value       | 0.0000    |
+| Lags Used     | 0         |
 
 ### 5.2 KPSS Test Results
 
 | Metric         | Value  |
 | -------------- | ------ |
-| KPSS Statistic | 0.0798 |
+| KPSS Statistic | 0.0743 |
 | P-value        | 0.10   |
 
 ### 5.3 Interpretation (Log Returns)
@@ -190,12 +190,12 @@ Because the MA-HP strategy uses the HP cycle component as a trading signal, the 
 
 | Metric   | Prices   | Log Returns |
 | -------- | -------- | ----------- |
-| Mean     | 155.5698 | 0.000011    |
-| Std Dev  | 1.6267   | 0.000957    |
-| Min      | 151.6170 | -0.007690   |
-| Max      | 159.3270 | 0.007279    |
-| Skewness | -0.0618  | -0.5213     |
-| Kurtosis | -0.5975  | 7.8385      |
+| Mean     | 151.3044 | 0.000006    |
+| Std Dev  | 5.0097   | 0.001290    |
+| Min      | 139.8510 | -0.021319   |
+| Max      | 161.9380 | 0.014631    |
+| Skewness | -0.1401  | -0.9104     |
+| Kurtosis | -1.0418  | 29.3705     |
 
 ---
 

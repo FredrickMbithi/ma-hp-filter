@@ -5,35 +5,43 @@ data:
   timeframe: "H1"
   start_date: "2023-01-01"
   end_date: "2026-03-01"
-  source: "mt5"  # mt5, yfinance, csv
+  source: "mt5" # mt5, yfinance, csv
+  # Data pipeline paths
+  raw_path: "data/raw"
+  interim_path: "data/interim"
+  processed_path: "data/processed"
+  # Validation settings
+  spike_threshold: 5.0 # Flag returns > 5 sigma
 
 hp_filter:
-  lambda: 14400  # Smoothness: ~1600 daily, ~14400 hourly, ~129600 for 15min
-  
+  lambda: 14400 # Smoothness: ~1600 daily, ~14400 hourly, ~129600 for 15min
+
 moving_average:
-  periods: [50, 200]  # Fast and slow MA
-  envelope_pct: 2.0   # % bands around MA
+  periods: [50, 200] # Fast and slow MA
+  envelope_pct: 2.0 # % bands around MA
 
 strategy:
-  entry_threshold: 2.0      # Z-score for cycle deviation
-  exit_threshold: 0.5       # Return to trend signal
-  use_ma_filter: true       # Confirm trend with MA
-  min_bars_history: 200     # Required bars for HP filter stability
+  entry_threshold: 2.0 # Z-score for cycle deviation
+  exit_threshold: 0.5 # Return to trend signal
+  use_ma_filter: true # Confirm trend with MA
+  min_bars_history: 200 # Required bars for HP filter stability
 
 risk:
-  max_position_size: 1.0    # Lot size
-  stop_loss_pct: 2.0        # % from entry
-  take_profit_pct: 4.0      # % from entry (optional)
-  max_drawdown_pct: 15.0    # Kill switch
-  risk_per_trade_pct: 1.0   # % of capital risked
+  max_position_size: 1.0 # Lot size
+  stop_loss_pct: 2.0 # % from entry
+  take_profit_pct: 4.0 # % from entry (optional)
+  max_drawdown_pct: 15.0 # Kill switch
+  risk_per_trade_pct: 1.0 # % of capital risked
 
 execution:
-  slippage_bps: 2           # Basis points
-  commission_bps: 1         # Per side
+  # Realistic USDJPY costs: 0.6 spread + 0.2 slippage = 0.8 bps total
+  # Old config (1 + 2 = 3 bps) overestimated costs by ~3.5×
+  slippage_bps: 0.2 # Execution slippage (realistic with VPS co-location)
+  commission_bps: 0.6 # Broker spread proxy (USDJPY typical)
 
 portfolio:
-  initial_capital: 10000    # USD
-  leverage: 10              # Max leverage
+  initial_capital: 10000 # USD
+  leverage: 10 # Max leverage
 
 backtest:
   walk_forward: false
@@ -49,7 +57,7 @@ services:
     enabled: false
     account: 12345678
     server: "Broker-Demo"
-  
+
   monitoring:
     enabled: false
     prometheus_port: 9090

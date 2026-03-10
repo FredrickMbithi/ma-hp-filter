@@ -30,35 +30,112 @@ class DataQualityReport:
     statistics: Dict[str, float]
 
 
-def load_csv_data(file_path: str, has_header: bool = False) -> pd.DataFrame:
+def load_csv_data(file_path: str, has_header: bool = None) -> pd.DataFrame:
     """
     Load OHLC data from CSV file.
-    
+
+    Supports two layouts:
+    - Headerless (MT5/MetaTrader): ``Date, Time, Open, High, Low, Close, Volume``
+    - Headered (yfinance): ``Datetime, Open, High, Low, Close, Volume[, ...]``
+
+    Header detection is automatic when ``has_header`` is left as ``None``:
+    if the first cell looks like a dot-separated date (``YYYY.MM.DD``) the
+    file is treated as headerless; otherwise a header row is assumed.
+    Pass ``has_header=True/False`` explicitly to override.
+
     Args:
         file_path: Path to CSV file
-        has_header: Whether CSV has header row
-    
+        has_header: ``True`` = file has a header row, ``False`` = no header,
+                    ``None`` (default) = auto-detect
+
     Returns:
-        DataFrame with datetime index and OHLC columns
+        DataFrame with UTC-aware DatetimeIndex and OHLC columns
     """
+    path = _resolve_file_path(file_path)
+
+    # ----- auto-detect header -----
+    if has_header is None:
+        probe = pd.read_csv(path, header=None, nrows=1)
+        first_cell = str(probe.iloc[0, 0])
+        # Dot-separated date like "2025.10.27" → headerless MT5 format
+        has_header = not (first_cell.count('.') == 2)
+
     if has_header:
-        df = pd.read_csv(file_path)
-        df.columns = df.columns.str.lower()
+        df = pd.read_csv(path)
+        df.columns = df.columns.str.lower().str.strip()
+
+        # Identify the datetime column (may be 'datetime', 'timestamp', 'date')
+        dt_col = next(
+            (c for c in df.columns if c in ('datetime', 'timestamp', 'date')),
+            None
+        )
+        if dt_col is None:
+            raise ValueError(
+                f"Cannot find a datetime column in {path}. "
+                f"Columns found: {list(df.columns)}"
+            )
+
+        df[dt_col] = pd.to_datetime(df[dt_col], utc=True, errors='coerce')
+        df = df.set_index(dt_col)
+        df.index.name = 'datetime'
+
+        # Drop metadata-only columns that carry no trading signal
+        drop_cols = [c for c in df.columns if c in ('dividends', 'stock splits', 'stock_splits')]
+        if drop_cols:
+            df = df.drop(columns=drop_cols)
     else:
-        # Assume format: Date, Time, Open, High, Low, Close, Volume
+        # Headerless MT5 format: Date, Time, Open, High, Low, Close, Volume
         df = pd.read_csv(
-            file_path,
+            path,
             names=['date', 'time', 'open', 'high', 'low', 'close', 'volume']
         )
-        # Combine date and time columns into datetime index
-        df['datetime'] = pd.to_datetime(df['date'] + ' ' + df['time'])
+        df['datetime'] = pd.to_datetime(
+            df['date'] + ' ' + df['time'],
+            format='%Y.%m.%d %H:%M',
+            errors='coerce'
+        )
         df = df.set_index('datetime')
         df = df.drop(columns=['date', 'time'])
-    
-    # Sort by datetime
+        df.index = df.index.tz_localize('UTC')
+
+    # Ensure UTC-aware index regardless of path taken
+    if df.index.tz is None:
+        df.index = df.index.tz_localize('UTC')
+    else:
+        df.index = df.index.tz_convert('UTC')
+
+    # Sort chronologically and drop any duplicate timestamps
+    df = df[~df.index.duplicated(keep='first')]
     df = df.sort_index()
-    
+
     return df
+
+
+def _resolve_file_path(file_path: str) -> Path:
+    """Return an existing path for the requested CSV.
+
+    The helper first checks the provided path relative to the current
+    working directory. If that is missing and the path is relative, it
+    also checks the project root (two levels up from this file). This
+    makes notebook execution robust whether it is started from the repo
+    root or the `notebooks/` directory.
+    """
+
+    path = Path(file_path)
+    candidates = [path]
+
+    if not path.is_absolute():
+        project_root = Path(__file__).resolve().parents[2]
+        candidates.append(project_root / path)
+
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+
+    tried = ", ".join(str(c.resolve()) for c in candidates)
+    raise FileNotFoundError(
+        f"CSV file not found. Tried: {tried}. Current working dir: {Path.cwd()}"
+    )
 
 
 def validate_data_quality(df: pd.DataFrame, file_path: str = "data.csv",

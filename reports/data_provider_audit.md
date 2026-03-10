@@ -4,8 +4,8 @@
 
 This document details the data sources, validation methodology, and quality assurance procedures for the MA-HP Filter trading system.
 
-**Current Data:** USD/JPY Hourly (USDJPY60.csv)  
-**Last Audit Date:** March 8, 2026  
+**Current Data:** USD/JPY Hourly (USDJPY_10yr_1h.csv)  
+**Last Audit Date:** March 10, 2026  
 **Data Quality Status:** Under Review
 
 ---
@@ -14,17 +14,17 @@ This document details the data sources, validation methodology, and quality assu
 
 ### Primary Data: USD/JPY Hourly
 
-**File:** `data/raw/USDJPY60.csv`  
-**Format:** CSV (Date, Time, Open, High, Low, Close, Volume)  
-**Timeframe:** October 27, 2025 - March 2, 2026  
-**Bars:** 2,105 hourly candles
+**File:** `data/raw/USDJPY_10yr_1h.csv`  
+**Format:** CSV (Datetime, Open, High, Low, Close, Volume) — yfinance/ISO 8601 UTC  
+**Timeframe:** March 11, 2024 - March 10, 2026  
+**Bars:** 12,231 hourly candles
 
 #### Data Structure
 
 ```csv
-Date       , Time , Open   , High   , Low    , Close  , Volume
-2025.10.27 , 10:00, 153.018, 153.066, 152.735, 152.813, 7367
-2025.10.27 , 11:00, 152.814, 152.814, 152.689, 152.744, 5860
+Datetime,Open,High,Low,Close,Volume,Dividends,Stock Splits
+2024-03-11 20:00:00+00:00,148.132996,148.195007,148.033997,148.054993,0,0.0,0.0
+2024-03-11 21:00:00+00:00,148.054993,148.054993,147.815002,147.917999,0,0.0,0.0
 ...
 ```
 
@@ -174,7 +174,7 @@ The forensics module (`src/data/forensics.py`) performs:
 Run validation with:
 
 ```bash
-python -m src.data.forensics data/raw/USDJPY60.csv
+python -m src.data.forensics data/raw/USDJPY_10yr_1h.csv
 ```
 
 Or run tests:
@@ -187,11 +187,12 @@ pytest tests/test_data_forensics.py::test_validate_real_usdjpy_data -v -s
 
 Based on visual inspection of data:
 
-- **Total Bars:** 2,105
-- **Date Range:** 2025-10-27 to 2026-03-02
-- **Expected Missing Bars:** ~100-150 (weekends)
+- **Total Bars:** 12,231
+- **Date Range:** 2024-03-11 to 2026-03-10
+- **Expected Missing Bars:** ~600-700 (weekends + holidays over 2 years)
 - **OHLC Violations:** Expected 0
 - **Negative Spreads:** Expected 0
+- **Volume:** Always 0 (yfinance FX artifact — not tradeable volume)
 
 **Action Required:** Run forensics and document actual results here.
 
@@ -271,7 +272,7 @@ _No incidents recorded yet. Update after first validation run._
 1. **Run Forensics Validation**
 
    ```bash
-   python -m src.data.forensics data/raw/USDJPY60.csv
+   python -m src.data.forensics data/raw/USDJPY_10yr_1h.csv
    ```
 
    Document results in this file
@@ -326,7 +327,7 @@ _No incidents recorded yet. Update after first validation run._
 **Validate single file:**
 
 ```bash
-python -m src.data.forensics data/raw/USDJPY60.csv
+python -m src.data.forensics data/raw/USDJPY_10yr_1h.csv
 ```
 
 **Scan entire directory:**
@@ -342,8 +343,8 @@ python -m src.data.forensics
 from src.data.forensics import load_csv_data, validate_data_quality, print_quality_report
 
 # Load and validate
-df = load_csv_data("data/raw/USDJPY60.csv", has_header=False)
-report = validate_data_quality(df, "USDJPY60.csv", expected_freq='H')
+df = load_csv_data("data/raw/USDJPY_10yr_1h.csv")
+report = validate_data_quality(df, "USDJPY_10yr_1h.csv", expected_freq='H')
 
 # Display results
 print_quality_report(report)

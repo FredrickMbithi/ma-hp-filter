@@ -275,8 +275,8 @@ def compute_swap_series(
         if pos == 0:
             continue
         side = "long" if pos > 0 else "short"
-        rate = _scalar_rate(swap_rates, side, reference_date=ts)
-        result[ts] = rate * abs(pos) * position_size
+        rate = _scalar_rate(swap_rates, side, date=ts)
+        result.loc[ts] = rate * abs(pos) * position_size
 
     return result
 
