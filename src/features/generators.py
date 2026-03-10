@@ -63,6 +63,9 @@ __all__ = [
     "trend_deviation_from_ma",
     "lambda_sensitivity_score",
     "vol_regime",
+    "threshold_time_stop_signal",
+    "vol_rolling_percentile",
+    "crossing_threshold_signal",
 ]
 
 
@@ -443,3 +446,228 @@ def vol_regime(
     regime[warm_up_mask] = np.nan
 
     return regime
+
+
+# ---------------------------------------------------------------------------
+# Threshold / time-stop signal generators
+# ---------------------------------------------------------------------------
+
+def threshold_time_stop_signal(
+    feature: pd.Series,
+    threshold_sigma: float,
+    hold_bars: int,
+    confirmation_bars: int = 0,
+    lookback: int = 252 * 24,
+) -> pd.Series:
+    """Entry on feature threshold crossing; exit on time-stop or opposite threshold.
+
+    Long entry:  feature < −threshold_sigma × rolling_std (confirmed for
+                 confirmation_bars+1 consecutive bars).
+    Short entry: feature > +threshold_sigma × rolling_std (confirmed for
+                 confirmation_bars+1 consecutive bars).
+    Exit:        hold_bars bars after entry, OR immediately when feature
+                 crosses the opposite threshold (early reversal exit).
+
+    Args:
+        feature: Signal series (e.g. hp_trend_curvature or ATR-norm MA spread).
+        threshold_sigma: Entry/exit threshold in rolling-std units.
+        hold_bars: Maximum bars to hold the position (time-stop).
+        confirmation_bars: Extra consecutive bars the feature must stay beyond
+            the threshold before entry triggers.  0 = immediate entry.
+        lookback: Rolling window for std normalisation (default 1 yr of H1 bars).
+
+    Returns:
+        Signal series of {−1.0, 0.0, +1.0}.  NaN-free; warm-up bars are 0.0.
+    """
+    n = len(feature)
+    values = feature.values.astype(float)
+    rolling_std = feature.rolling(window=lookback, min_periods=lookback).std().values
+
+    signal_out = np.zeros(n)
+    position = 0        # current position: -1, 0, +1
+    hold_count = 0      # bars held in current position
+    confirm_count = 0   # consecutive bars beyond threshold
+    confirm_dir = 0     # direction being confirmed: +1 (long setup) or -1 (short setup)
+
+    for i in range(n):
+        if np.isnan(values[i]) or np.isnan(rolling_std[i]) or rolling_std[i] == 0.0:
+            signal_out[i] = 0.0
+            position = 0
+            hold_count = 0
+            confirm_count = 0
+            confirm_dir = 0
+            continue
+
+        thresh = threshold_sigma * rolling_std[i]
+
+        # --- Manage open position ---
+        if position != 0:
+            hold_count += 1
+            if position == 1 and values[i] > thresh:
+                # Opposite threshold crossed → early exit long
+                position = 0
+                hold_count = 0
+                confirm_count = 0
+                confirm_dir = 0
+            elif position == -1 and values[i] < -thresh:
+                # Opposite threshold crossed → early exit short
+                position = 0
+                hold_count = 0
+                confirm_count = 0
+                confirm_dir = 0
+            elif hold_count >= hold_bars:
+                # Time-stop
+                position = 0
+                hold_count = 0
+                confirm_count = 0
+                confirm_dir = 0
+
+        # --- Look for new entry when flat ---
+        if position == 0:
+            if values[i] < -thresh:
+                if confirm_dir == 1:
+                    confirm_count += 1
+                else:
+                    confirm_dir = 1
+                    confirm_count = 1
+                if confirm_count > confirmation_bars:
+                    position = 1
+                    hold_count = 0
+                    confirm_count = 0
+                    confirm_dir = 0
+            elif values[i] > thresh:
+                if confirm_dir == -1:
+                    confirm_count += 1
+                else:
+                    confirm_dir = -1
+                    confirm_count = 1
+                if confirm_count > confirmation_bars:
+                    position = -1
+                    hold_count = 0
+                    confirm_count = 0
+                    confirm_dir = 0
+            else:
+                confirm_count = 0
+                confirm_dir = 0
+
+        signal_out[i] = float(position)
+
+    return pd.Series(signal_out, index=feature.index,
+                     name=f"tts_{threshold_sigma}s_{hold_bars}h")
+
+
+def vol_rolling_percentile(
+    returns: pd.Series,
+    vol_window: int = 20,
+    lookback: int = 252 * 24,
+) -> pd.Series:
+    """Rolling percentile rank of realized volatility, expressed as 0–100.
+
+    Used as a continuous vol filter: only trade when vol_rolling_percentile
+    exceeds a threshold (e.g. > 50 trades only in above-median-vol regimes).
+
+    Args:
+        returns: Log return series.
+        vol_window: Window for realized volatility (default 20 bars).
+        lookback: Lookback for percentile rank (default 1 yr of H1 bars).
+
+    Returns:
+        Series in [0, 100].  NaN during warm-up period.
+    """
+    realized_vol = returns.rolling(window=vol_window, min_periods=vol_window).std()
+    pct_rank = (
+        realized_vol
+        .rolling(window=lookback, min_periods=lookback)
+        .rank(pct=True)
+        * 100.0
+    )
+    return pct_rank.rename("vol_pct_rank")
+
+
+def crossing_threshold_signal(
+    feature: pd.Series,
+    threshold_sigma: float,
+    hold_bars: int,
+    lookback: int = 252 * 24,
+) -> pd.Series:
+    """Mean-reversion signal using threshold CROSSING entry (not residency).
+
+    Entry fires on the first bar where |feature| exceeds the threshold coming
+    from neutral territory (previous bar was NOT extreme in the same direction).
+    After a position exits via time-stop, the feature must first return below the
+    threshold before a new entry is allowed.  This eliminates serial re-entries
+    while the feature remains continuously extreme.
+
+    Compared to threshold_time_stop_signal (confirmation_bars=0), the only
+    behavioural difference is the post-exit lockout: this function requires the
+    feature to cross BACK through the threshold level before re-entering.
+
+    Long entry:  feature crosses below −threshold_sigma × rolling_std
+                 (previous bar was NOT in the negative extreme zone)
+    Short entry: feature crosses above +threshold_sigma × rolling_std
+                 (previous bar was NOT in the positive extreme zone)
+    Exit:        hold_bars time-stop OR feature crosses opposite threshold.
+
+    Args:
+        feature: Signal series (e.g. ATR-normalised MA spread).
+        threshold_sigma: Entry/exit threshold in rolling-std units.
+        hold_bars: Maximum bars to hold a position (time-stop).
+        lookback: Rolling window for std normalisation (default 1 yr H1 bars).
+
+    Returns:
+        Signal series of {−1.0, 0.0, +1.0}.  NaN-free; warm-up bars are 0.0.
+    """
+    n = len(feature)
+    values = feature.values.astype(float)
+    rolling_std = feature.rolling(window=lookback, min_periods=lookback).std().values
+
+    signal_out = np.zeros(n)
+    position = 0        # current position: -1, 0, +1
+    hold_count = 0      # bars held in current position
+    prev_extreme = 0    # extreme state at end of previous bar: +1, -1, or 0
+
+    for i in range(n):
+        if np.isnan(values[i]) or np.isnan(rolling_std[i]) or rolling_std[i] == 0.0:
+            signal_out[i] = 0.0
+            position = 0
+            hold_count = 0
+            prev_extreme = 0
+            continue
+
+        thresh = threshold_sigma * rolling_std[i]
+        curr_extreme = (1 if values[i] > thresh else (-1 if values[i] < -thresh else 0))
+
+        # --- Manage open position ---
+        if position != 0:
+            hold_count += 1
+            if position == 1 and curr_extreme == 1:
+                # Feature crossed into positive extreme → early exit long
+                position = 0
+                hold_count = 0
+            elif position == -1 and curr_extreme == -1:
+                # Feature crossed into negative extreme → early exit short
+                position = 0
+                hold_count = 0
+            elif hold_count >= hold_bars:
+                # Time-stop
+                position = 0
+                hold_count = 0
+
+        # --- Look for crossing entry when flat ---
+        # Entry fires only when feature JUST crossed into extreme territory
+        # (prev_extreme was NOT the same direction → this is a genuine crossing)
+        if position == 0:
+            if curr_extreme == -1 and prev_extreme != -1:
+                # LONG: fresh cross below −threshold
+                position = 1
+                hold_count = 0
+            elif curr_extreme == 1 and prev_extreme != 1:
+                # SHORT: fresh cross above +threshold
+                position = -1
+                hold_count = 0
+
+        signal_out[i] = float(position)
+        prev_extreme = curr_extreme
+
+    return pd.Series(signal_out, index=feature.index,
+                     name=f"cross_{threshold_sigma}s_{hold_bars}h")
