@@ -130,17 +130,22 @@ def causal_hp_trend(
 
     Returns:
         Causal HP trend S*(t).
-        First (window − 1) values are NaN.
+        First (window − 1) values are NaN. Leading NaNs in ``prices`` are
+        preserved until a full clean window is available.
     """
     if window < 10:
         raise ValueError(f"window must be ≥ 10, got {window}")
 
-    n = len(prices)
-    values = prices.values.astype(float)
+    filled_prices = prices.ffill()
+
+    n = len(filled_prices)
+    values = filled_prices.values.astype(float)
     trend_values = np.full(n, np.nan)
 
     for t in range(window - 1, n):
         window_prices = values[t - window + 1 : t + 1]
+        if np.isnan(window_prices).any():
+            continue
         _, trend_window = hpfilter(window_prices, lamb=lamb)
         trend_values[t] = trend_window[-1]
 
@@ -491,14 +496,16 @@ def threshold_time_stop_signal(
 
     for i in range(n):
         if np.isnan(values[i]) or np.isnan(rolling_std[i]) or rolling_std[i] == 0.0:
-            signal_out[i] = 0.0
-            position = 0
-            hold_count = 0
-            confirm_count = 0
-            confirm_dir = 0
+            signal_out[i] = float(position)
+            if position != 0:
+                hold_count += 1
+            else:
+                confirm_count = 0
+                confirm_dir = 0
             continue
 
         thresh = threshold_sigma * rolling_std[i]
+        exited_this_bar = False
 
         # --- Manage open position ---
         if position != 0:
@@ -509,21 +516,24 @@ def threshold_time_stop_signal(
                 hold_count = 0
                 confirm_count = 0
                 confirm_dir = 0
+                exited_this_bar = True
             elif position == -1 and values[i] < -thresh:
                 # Opposite threshold crossed → early exit short
                 position = 0
                 hold_count = 0
                 confirm_count = 0
                 confirm_dir = 0
+                exited_this_bar = True
             elif hold_count >= hold_bars:
                 # Time-stop
                 position = 0
                 hold_count = 0
                 confirm_count = 0
                 confirm_dir = 0
+                exited_this_bar = True
 
         # --- Look for new entry when flat ---
-        if position == 0:
+        if position == 0 and not exited_this_bar:
             if values[i] < -thresh:
                 if confirm_dir == 1:
                     confirm_count += 1
@@ -628,14 +638,14 @@ def crossing_threshold_signal(
 
     for i in range(n):
         if np.isnan(values[i]) or np.isnan(rolling_std[i]) or rolling_std[i] == 0.0:
-            signal_out[i] = 0.0
-            position = 0
-            hold_count = 0
-            prev_extreme = 0
+            signal_out[i] = float(position)
+            if position != 0:
+                hold_count += 1
             continue
 
         thresh = threshold_sigma * rolling_std[i]
         curr_extreme = (1 if values[i] > thresh else (-1 if values[i] < -thresh else 0))
+        exited_this_bar = False
 
         # --- Manage open position ---
         if position != 0:
@@ -644,19 +654,22 @@ def crossing_threshold_signal(
                 # Feature crossed into positive extreme → early exit long
                 position = 0
                 hold_count = 0
+                exited_this_bar = True
             elif position == -1 and curr_extreme == -1:
                 # Feature crossed into negative extreme → early exit short
                 position = 0
                 hold_count = 0
+                exited_this_bar = True
             elif hold_count >= hold_bars:
                 # Time-stop
                 position = 0
                 hold_count = 0
+                exited_this_bar = True
 
         # --- Look for crossing entry when flat ---
         # Entry fires only when feature JUST crossed into extreme territory
         # (prev_extreme was NOT the same direction → this is a genuine crossing)
-        if position == 0:
+        if position == 0 and not exited_this_bar:
             if curr_extreme == -1 and prev_extreme != -1:
                 # LONG: fresh cross below −threshold
                 position = 1

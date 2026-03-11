@@ -345,7 +345,7 @@ powered_is = valid_is[~valid_is.get("underpowered", pd.Series(False, index=valid
 if len(powered_is) == 0:
     powered_is = valid_is
 
-best_row    = powered_is.nlargest(1, "dsr").iloc[0]
+best_row    = powered_is.sort_values(["dsr", "sharpe"], ascending=False).iloc[0]
 best_thresh = best_row["threshold_sigma"]
 best_hold   = int(best_row["hold_bars"])
 best_vfloor = int(best_row["vol_pct_floor"])

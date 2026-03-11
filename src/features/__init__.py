@@ -32,6 +32,25 @@ from .generators import (
 # Feature taxonomy and catalog
 from .taxonomy import FeatureSpec, FeatureCatalog, FeatureCategory, FeatureOutcome, CATALOG
 
+# Univariate testing framework
+from .testing import (
+    StationarityResult,
+    ICResult,
+    ICDecayResult,
+    RollingICResult,
+    HitRateResult,
+    MonotonicityResult,
+    FeatureTestSummary,
+    compute_forward_returns,
+    check_stationarity,
+    compute_ic,
+    compute_ic_decay,
+    compute_rolling_ic,
+    compute_hit_rate,
+    compute_quantile_ic,
+    UnivariateFeatureTester,
+)
+
 __all__ = [
     # Returns
     "compute_log_returns",
@@ -64,4 +83,95 @@ __all__ = [
     "FeatureCategory",
     "FeatureOutcome",
     "CATALOG",
+    # Univariate testing
+    "StationarityResult",
+    "ICResult",
+    "ICDecayResult",
+    "RollingICResult",
+    "HitRateResult",
+    "MonotonicityResult",
+    "FeatureTestSummary",
+    "compute_forward_returns",
+    "check_stationarity",
+    "compute_ic",
+    "compute_ic_decay",
+    "compute_rolling_ic",
+    "compute_hit_rate",
+    "compute_quantile_ic",
+    "UnivariateFeatureTester",
+    # Correlation analysis
+    "RedundantPair",
+    "CorrelationResult",
+    "compute_correlation_matrix",
+    "find_redundant_pairs",
+    "select_non_redundant_features",
+    # Normalization
+    "zscore_normalize",
+    "rank_normalize",
+    "normalize_features",
+    # Regime features
+    "trend_strength",
+    "trend_consistency",
+    "hl_spread_ratio",
+    "vol_zscore",
+    "vol_rolling_percentile",
+    # Stability
+    "PeriodICResult",
+    "StabilityResult",
+    "compute_walk_forward_stability",
+    "FeatureStabilityTester",
+    # Selection
+    "FeatureSelectionResult",
+    "FeatureSelector",
+    # Signals
+    "SignalConfig",
+    "combine_features",
+    "signal_to_position",
 ]
+
+
+# Correlation analysis
+from .correlation_analysis import (
+    RedundantPair,
+    CorrelationResult,
+    compute_correlation_matrix,
+    find_redundant_pairs,
+    select_non_redundant_features,
+)
+
+# Normalization
+from .normalization import (
+    zscore_normalize,
+    rank_normalize,
+    normalize_features,
+)
+
+# Regime features (new + re-exports from generators)
+from .regime_features import (
+    trend_strength,
+    trend_consistency,
+    hl_spread_ratio,
+    vol_zscore,
+    vol_rolling_percentile,
+)
+
+# Walk-forward stability
+from .stability import (
+    PeriodICResult,
+    StabilityResult,
+    compute_walk_forward_stability,
+    FeatureStabilityTester,
+)
+
+# Feature selection
+from .selection import (
+    FeatureSelectionResult,
+    FeatureSelector,
+)
+
+# Signal construction
+from .signals import (
+    SignalConfig,
+    combine_features,
+    signal_to_position,
+)

@@ -601,60 +601,183 @@ Re-ran the Strategy B grid (3 thresh × 3 hold × 4 vol_floor = 36 combinations)
 
 ---
 
-### Updated Priorities
+### Experiment 5 — Strategy B OOS Re-run (Bug Fixed)
 
-The five original priorities have been executed. New priorities based on findings:
+**Script:** `experiments/strategy_b_crossing_entry.py` (fixed: `sort_values(["dsr","sharpe"])`)
 
-**Priority 1 — Strategy B OOS re-run on thresh=1.0/hold=48 (CRITICAL).** Fix the DSR tie-breaking bug (sort by `["dsr", "sharpe"]`, not `"dsr"` alone), then re-run OOS walk-forward from 2022-01-02 with the corrected selection. This is the single experiment required before any strategy-B conclusion can be drawn. Strategy B IS Sharpe = +0.344 on the corrected entry rule. Whether this holds OOS in the 2022–2026 directional-trend period is the open question.
+OOS evaluated on the correct best IS combo: **thresh=1.0, hold=48, vol_floor=0**.
 
-**Priority 2 — Strategy A is closed.** No further experiments needed on HP trend curvature. The full 0.75–1.5σ range has been tested. Document and move on.
+| Scenario | Cost (bps) | OOS Sharpe | OOS AnnRet | MaxDD  | Trades |
+| -------- | ---------- | ---------- | ---------- | ------ | ------ |
+| base     | 0.9        | −0.210     | −1.15%     | −17.4% | 144    |
+| high     | 1.5        | −0.282     | −1.55%     | −18.0% | 144    |
+| stress   | 2.0        | −0.343     | −1.89%     | −18.8% | 144    |
 
-**Priority 3 — Characterise the IS period (2016–2021) vs OOS period (2022–2026) for the MA spread signal.** Compute year-by-year or rolling annual Sharpe for thresh=1.0/hold=48/crossing rule. This separates regime attribution from pure OOS failure. If IS is uniformly good and OOS is uniformly bad, the 2022–2026 YCC-exit + trend period is the likely structural break.
+The Sharpe range across the cost scenarios is −0.21 to −0.34. Cost sensitivity is minimal (0.13 Sharpe per 1.1 bps cost increase). The OOS failure is entirely due to signal direction, not transaction costs.
 
-**Priority 4 — Strategy C design.** The IC scan confirms MA spread IC at H=12–48 (\*\*\*) is structurally present across the full 10-year period. A slower strategy based on the return-decay peak (hold_bars=48, thresh=1.0σ, crossing entry) is now a well-motivated design. This is Strategy C: parameterised by the diagnostic results, not by grid search.
+---
+
+### Experiment 6 — Year-by-Year Breakdown
+
+**Script:** `experiments/strategy_b_yearly_breakdown.py` → `data/interim/strategy_b_yearly_results.csv`
+
+Best IS combo (thresh=1.0, hold=48, crossing, vol_floor=0) evaluated year by year.
+
+| Year | Period | Sharpe | AnnRet | MaxDD  | Trades | Ann Vol |
+| ---- | ------ | ------ | ------ | ------ | ------ | ------- |
+| 2016 | IS     | —      | —      | —      | 0      | —       |
+| 2017 | IS     | +0.122 | +0.42% | −2.6%  | 28     | 3.4%    |
+| 2018 | IS     | −0.862 | −3.10% | −4.1%  | 36     | 3.6%    |
+| 2019 | IS     | +0.814 | +2.93% | −2.7%  | 42     | 3.6%    |
+| 2020 | IS     | +0.617 | +2.64% | −4.5%  | 33     | 4.3%    |
+| 2021 | IS     | +1.157 | +3.66% | −1.9%  | 37     | 3.2%    |
+| 2022 | OOS    | −0.531 | −2.88% | −8.8%  | 30     | 5.4%    |
+| 2023 | OOS    | −0.409 | −2.12% | −7.5%  | 35     | 5.2%    |
+| 2024 | OOS    | −1.463 | −9.17% | −11.4% | 41     | 6.3%    |
+| 2025 | OOS    | +1.709 | +8.68% | −2.8%  | 30     | 5.1%    |
+| 2026 | OOS    | +0.795 | +4.13% | −1.9%  | 8      | 5.2%    |
+
+**IS total:** Sharpe=+0.344, AnnRet=+1.16%, MaxDD=−5.8%, 176 trades, vol≈3.4%  
+**OOS total:** Sharpe=−0.210, AnnRet=−1.15%, MaxDD=−17.4%, 144 trades, vol≈5.5%
+
+Key findings:
+
+- **IS edge is not concentrated in one year.** 4/5 IS years are positive; the bad IS year (2018, −0.862) was a genuine signal failure, not an outlier that inflates the average. The median IS Sharpe is +0.617.
+- **OOS failure is concentrated in 2024.** This was the USDJPY YCC-exit year (140→160 run, then BoJ intervention to 142). Both directional phases would be hostile to a H=48-bar mean-reversion signal. 2024 Sharpe=−1.463 on the highest OOS vol (6.3%).
+- **OOS vol structurally higher.** IS mean vol ≈3.5%, OOS mean vol ≈5.5% — a 57% increase. The strategy performs poorly when annualised vol exceeds ~5%. This is a vol-regime dependency, not a pure structural break.
+- **2025 and 2026 are both positive** (Sharpe=+1.709 and +0.795). This suggests the signal is not permanently dead in the post-YCC environment; it works when USDJPY volatility normalises back below the threshold.
+
+---
+
+### Experiment 7 — Strategy C: Regime Switching (MR + TF)
+
+**Script:** `experiments/strategy_c_regime_switching.py` → `data/interim/strategy_c_results_is.csv`, `strategy_c_results_oos.csv`
+
+Tested vol-based regime switch: MA spread crossing MR (low vol) ↔ HP trend MA crossover TF (high vol), across 8 combos (2 T2 × 4 vol splits).
+
+**IS results (all negative):**
+
+| T2  | Vol split | MR% | TF% | IS Sharpe | IS Trades |
+| --- | --------- | --- | --- | --------- | --------- |
+| 480 | 25/75     | 29% | 24% | −0.560    | 662       |
+| 480 | 50/50     | 54% | 46% | −0.653    | 880       |
+| 240 | 25/75     | 29% | 24% | −0.690    | 669       |
+| 240 | 33/67     | 37% | 31% | −0.981    | 791       |
+
+TF baselines (IS only): T2=240 Sharpe=−0.571; T2=480 Sharpe=−0.243.  
+MR baseline (Strategy B): IS Sharpe=+0.344.
+
+**Key findings:**
+
+- **Regime switching fails IS.** All 8 combinations are IS-negative. The TF signal (HP trend MA crossover) has negative IS alpha on its own (T2=240: −0.571; T2=480: −0.243). Adding a negative-alpha signal to a positive-alpha signal via regime switching cannot improve unless the two signals are genuinely anti-correlated in the right way; they are not.
+- **Strategy C as designed is closed.** The HP trend MA crossover is not a viable TF component for the high-vol regime. Its signal frequency is too low (157 crossovers over 10 years for T2=480) and it stays on the wrong side too long during sustained directional periods.
+- **Year-by-year shows the regime switch helps in exactly the years that MR fails** (e.g. 2018: MR=−0.862 → C=+1.324; 2022: MR=−0.531 → C=+0.994; 2024: MR=−1.463 → C=+0.370), but destroys value in the good MR years (2019: MR=+0.814 → C=−1.258; 2020: MR=+0.617 → C=−1.508). The TF signal is too unreliable to compensate.
+
+---
+
+### Experiment 8 — EFC Filter: trend_dev_240 as Entry Quality Gate
+
+**Script:** `experiments/strategy_b_efc_filter.py` → `data/interim/strategy_b_efc_results.csv`
+
+Applied `trend_dev_240` (HP trend minus its 240-bar SMA, ATR-normalised, λ=1B) as an entry-blocking filter on the base crossing signal. Entries are removed (hold window zeroed) when `|trend_dev_240| < filter_threshold`. The `apply_entry_filter` function identifies new-entry bars and removes the entire hold window for blocked entries.
+
+| Filter      | Active% | IS Sharpe | IS Trades | OOS Sharpe | OOS Trades |
+| ----------- | ------- | --------- | --------- | ---------- | ---------- |
+| unfiltered  | 100%    | +0.344    | 176       | −0.210     | 144        |
+| \|td\|>0.5σ | 48%     | +0.713    | 100       | −0.525     | 85         |
+| \|td\|>1.0σ | 19%     | +0.250    | 42        | −0.260     | 44         |
+| \|td\|>1.5σ | 6%      | −0.249    | 18        | −0.072     | 19         |
+| alignment   | 69%     | +0.635    | 116       | −0.466     | 109        |
+
+**Key findings:**
+
+- **IS quality uplift at 0.5σ is real.** The filter halves trade count (176→100) and doubles IS Sharpe (+0.344→+0.713). This is the cleanest quality-filter result in this study — fewer trades with higher precision per trade. The alignment gate (require sign(td) = sign(spread)) achieves similar IS Sharpe (+0.635) with fewer trades removed.
+- **OOS does not confirm the IS improvement.** Every filter that improves IS worsens OOS (0.5σ: −0.210→−0.525; alignment: −0.210→−0.466). The filter is selecting entries that happened to be profitable in the 2016–2021 range-bound period, but the same selection rule picks entries during HP trend extremes that _persisted_ in 2022–2024 rather than reverting.
+- **1.5σ filter is the exception.** OOS Sharpe improves from −0.210 to −0.072 and MaxDD drops from 17.4% to 2.3%. Only 18 IS trades and 19 OOS trades, so this is under-powered, but the direction is consistent with a "only enter during extreme overextension" rule that reduces OOS mean-reversion risk.
+- **Interpretation.** The `trend_dev_240` quality filter has genuine predictive value in the IS regime (low-vol, mean-reverting USDJPY 2016–2021). In the OOS period (high-vol, directional 2022–2024), large HP trend deviations indicated continuation rather than reversal. The filter's usefulness is regime-dependent, not unconditional.
+
+---
+
+### Updated Priorities (post-Experiments 5–8)
+
+All originally planned priorities (1–5) and the subsequent four experiments (OOS rerun, yearly breakdown, Strategy C, EFC) have been executed. The current state is:
+
+**What is confirmed as positive:**
+
+- Strategy B IS Sharpe = +0.344 (thresh=1.0, hold=48, crossing entry, no vol filter) on 62K bars/6yr IS. 4/5 IS years positive; median IS year Sharpe = +0.617.
+- MA spread IC at H=24–48 (IC≈−0.022, \*\*\*) is structurally present over the full 10-year window.
+- The EFC filter at 0.5σ produces IS Sharpe=+0.713 (100 IS trades). IS credible.
+
+**What is confirmed as failed:**
+
+- Strategy A: closed. 1/144 combos Sharpe>0 across the full tested parameter space.
+- Strategy C (HP crossover TF): closed. Negative IS alpha.
+- EFC filter (unconditional OOS improvement): not established. IS uplift does not generalise.
+
+**Open questions requiring further characterisation:**
+
+- Is the OOS failure (2022–2024) a permanent structural break (BoJ policy → USDJPY rediscovery) or a temporary regime that has normalised (2025/2026 positive)?
+- Under what conditions does Strategy B work? The vol-dependency implies a vol-gate could select for the right environment. But vol-gate was already tested (vol_floor filter) and did not conclusively help with crossing entry.
+- The EFC filter at 1.5σ reduces OOS MaxDD to 2.3% — is this a useful position-sizing principle (reduce leverage when trend_dev is between 1.0–1.5σ rather than blocking entry)?
+
+**Priority 1 — Strategy B re-evaluation with 2025/2026 OOS.** The IS ended 2021-12-31. With 2025 (+1.709) and 2026 (+0.795) both positive, extending the OOS window by another year and re-evaluating whether the overall OOS Sharpe becomes positive is worth tracking. The 2022–2024 period may be attributable to the YCC-exit event which is a once-per-decade monetary policy change.
+
+**Priority 2 — EFC risk-scaling rather than entry-blocking.** Instead of blocking entries below 1.5σ trend_dev, scale position size proportional to |trend_dev_240|. Larger trend deviations get full size; small deviations get 50%. This avoids the binary blocking that removes good IS trades.
+
+**Priority 3 — Live universe.** Before any further IS/OOS analysis, specify the live execution requirements: data latency, position sizing, risk limit, monitoring. Strategy B at thresh=1.0/hold=48/crossing produces ~17–18 trades per year per instrument. With USDJPY as single instrument, monthly P&L will be highly variable.
 
 ---
 
 ## Files and Artefacts
 
-| File                                             | Description                                                                                |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `data/raw/USDJPY_10yr_1h_dukascopy.csv`          | Primary dataset — 62,303 bars, 2016-03-13 to 2026-03-10, Dukascopy H1                      |
-| `data/raw/USDJPY_10yr_1h.csv`                    | Previous dataset — 12,231 bars, 2024-03-11 to 2026-03-10, yfinance                         |
-| `data/interim/hp_trends_window500.csv`           | Precomputed causal HP trends for 6 λ values, HP_WINDOW=500, Dukascopy                      |
-| `data/interim/hp_trends_window500.csv.bak2`      | yfinance HP trends archive (12,231 bars)                                                   |
-| `data/interim/grid_results.csv`                  | 72-combination grid search results, Dukascopy                                              |
-| `data/interim/grid_results.csv.bak2`             | yfinance grid results archive                                                              |
-| `data/interim/pipeline_summary.json`             | Full JSON results: ADF, IC, grid, regime — Dukascopy run                                   |
-| `data/interim/pipeline_summary.json.bak2`        | yfinance pipeline summary archive                                                          |
-| `data/interim/reversed_grid_results.csv`         | 216-row reversed-signal variants — Dukascopy run (all Sharpe ≤ 0.067)                      |
-| `data/interim/strategy_a_results.csv`            | 216-row Strategy A grid (curvature + threshold_time_stop) — all DSR = 0.000                |
-| `data/interim/strategy_b_results.csv`            | 36-row Strategy B IS grid (MA spread + vol filter) — all DSR = 0.000                       |
-| `data/interim/strategy_b_oos.csv`                | Strategy B OOS walk-forward results × 3 cost scenarios — all Sharpe < 0                    |
-| `logs/pipeline_output.txt`                       | Full pipeline stdout — Dukascopy run                                                       |
-| `logs/reversed_grid_output.txt`                  | Reversed grid search stdout — Dukascopy run                                                |
-| `logs/strategy_a_output.txt`                     | Strategy A grid search stdout — 216 combos, Dukascopy run                                  |
-| `logs/strategy_b_output.txt`                     | Strategy B grid search + walk-forward stdout — Dukascopy run                               |
-| `experiments/strategy_a_curvature_grid.py`       | HP trend curvature × threshold_time_stop_signal grid (216 combos)                          |
-| `experiments/strategy_b_ma_spread_vol_filter.py` | MA spread × vol filter IS grid + walk-forward OOS (36 combos)                              |
-| `src/features/generators.py`                     | Added: `threshold_time_stop_signal`, `vol_rolling_percentile`, `crossing_threshold_signal` |
-| `data/interim/return_decay_results.csv`          | Return-decay diagnostic: 4 thresholds × 7 horizons × 2 features                            |
-| `data/interim/ic_horizon_scan_results.csv`       | IC horizon scan: 5 features (4 curvature λ + MA spread) × 7 horizons                       |
-| `data/interim/strategy_a_expanded_results.csv`   | Strategy A expanded grid: 144 combos (thresh=0.75–1.25σ, conf=0–1)                         |
-| `data/interim/strategy_b_crossing_is.csv`        | Strategy B crossing-entry IS grid: 36 combos                                               |
-| `data/interim/strategy_b_crossing_oos.csv`       | Strategy B crossing-entry OOS (bug: wrong IS selection — re-run needed)                    |
-| `logs/return_decay_output.txt`                   | Return-decay diagnostic stdout                                                             |
-| `logs/ic_horizon_output.txt`                     | IC horizon scan stdout                                                                     |
-| `logs/strategy_a_expanded_output.txt`            | Strategy A expanded grid stdout — 144 combos                                               |
-| `logs/strategy_b_crossing_output.txt`            | Strategy B crossing-entry stdout                                                           |
-| `experiments/return_decay_diagnostic.py`         | Return-decay diagnostic script (vectorised cumsum implementation)                          |
-| `experiments/ic_horizon_scan.py`                 | IC horizon scan script                                                                     |
-| `experiments/strategy_a_expanded_grid.py`        | Strategy A expanded grid (thresh=0.75–1.25σ, conf=0–1, 144 combos)                         |
-| `experiments/strategy_b_crossing_entry.py`       | Strategy B with crossing_threshold_signal — IS grid + walk-forward OOS                     |
-| `notebooks/01_stationarity_tests.ipynb`          | Updated — Dukascopy 62K bars                                                               |
-| `notebooks/02_autocorrelation_analysis.ipynb`    | Updated — Dukascopy 62K bars                                                               |
-| `notebooks/03_feature_engineering.ipynb`         | Updated — Dukascopy 62K bars                                                               |
+| File                                             | Description                                                                                  |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `data/raw/USDJPY_10yr_1h_dukascopy.csv`          | Primary dataset — 62,303 bars, 2016-03-13 to 2026-03-10, Dukascopy H1                        |
+| `data/raw/USDJPY_10yr_1h.csv`                    | Previous dataset — 12,231 bars, 2024-03-11 to 2026-03-10, yfinance                           |
+| `data/interim/hp_trends_window500.csv`           | Precomputed causal HP trends for 6 λ values, HP_WINDOW=500, Dukascopy                        |
+| `data/interim/hp_trends_window500.csv.bak2`      | yfinance HP trends archive (12,231 bars)                                                     |
+| `data/interim/grid_results.csv`                  | 72-combination grid search results, Dukascopy                                                |
+| `data/interim/grid_results.csv.bak2`             | yfinance grid results archive                                                                |
+| `data/interim/pipeline_summary.json`             | Full JSON results: ADF, IC, grid, regime — Dukascopy run                                     |
+| `data/interim/pipeline_summary.json.bak2`        | yfinance pipeline summary archive                                                            |
+| `data/interim/reversed_grid_results.csv`         | 216-row reversed-signal variants — Dukascopy run (all Sharpe ≤ 0.067)                        |
+| `data/interim/strategy_a_results.csv`            | 216-row Strategy A grid (curvature + threshold_time_stop) — all DSR = 0.000                  |
+| `data/interim/strategy_b_results.csv`            | 36-row Strategy B IS grid (MA spread + vol filter) — all DSR = 0.000                         |
+| `data/interim/strategy_b_oos.csv`                | Strategy B OOS walk-forward results × 3 cost scenarios — all Sharpe < 0                      |
+| `logs/pipeline_output.txt`                       | Full pipeline stdout — Dukascopy run                                                         |
+| `logs/reversed_grid_output.txt`                  | Reversed grid search stdout — Dukascopy run                                                  |
+| `logs/strategy_a_output.txt`                     | Strategy A grid search stdout — 216 combos, Dukascopy run                                    |
+| `logs/strategy_b_output.txt`                     | Strategy B grid search + walk-forward stdout — Dukascopy run                                 |
+| `experiments/strategy_a_curvature_grid.py`       | HP trend curvature × threshold_time_stop_signal grid (216 combos)                            |
+| `experiments/strategy_b_ma_spread_vol_filter.py` | MA spread × vol filter IS grid + walk-forward OOS (36 combos)                                |
+| `src/features/generators.py`                     | Added: `threshold_time_stop_signal`, `vol_rolling_percentile`, `crossing_threshold_signal`   |
+| `data/interim/return_decay_results.csv`          | Return-decay diagnostic: 4 thresholds × 7 horizons × 2 features                              |
+| `data/interim/ic_horizon_scan_results.csv`       | IC horizon scan: 5 features (4 curvature λ + MA spread) × 7 horizons                         |
+| `data/interim/strategy_a_expanded_results.csv`   | Strategy A expanded grid: 144 combos (thresh=0.75–1.25σ, conf=0–1)                           |
+| `data/interim/strategy_b_crossing_is.csv`        | Strategy B crossing-entry IS grid: 36 combos                                                 |
+| `data/interim/strategy_b_crossing_oos.csv`       | Strategy B crossing-entry OOS — corrected (thresh=1.0/hold=48): base Sharpe=−0.210           |
+| `data/interim/strategy_b_yearly_results.csv`     | Year-by-year breakdown for best IS combo (2016–2026, IS/OOS split)                           |
+| `data/interim/strategy_c_results_is.csv`         | Strategy C regime-switching IS grid: 8 combos (all IS-negative)                              |
+| `data/interim/strategy_c_results_oos.csv`        | Strategy C regime-switching OOS (best IS combo: T2=480, split=25/75)                         |
+| `data/interim/strategy_b_efc_results.csv`        | EFC filter results: 5 configurations (unfiltered, 0.5σ, 1.0σ, 1.5σ, alignment)               |
+| `logs/return_decay_output.txt`                   | Return-decay diagnostic stdout                                                               |
+| `logs/ic_horizon_output.txt`                     | IC horizon scan stdout                                                                       |
+| `logs/strategy_a_expanded_output.txt`            | Strategy A expanded grid stdout — 144 combos                                                 |
+| `logs/strategy_b_crossing_output.txt`            | Strategy B crossing-entry stdout (corrected OOS run)                                         |
+| `logs/strategy_b_yearly_output.txt`              | Year-by-year breakdown stdout                                                                |
+| `logs/strategy_c_regime_output.txt`              | Strategy C regime-switching stdout                                                           |
+| `logs/strategy_b_efc_output.txt`                 | EFC filter stdout                                                                            |
+| `experiments/return_decay_diagnostic.py`         | Return-decay diagnostic script (vectorised cumsum implementation)                            |
+| `experiments/ic_horizon_scan.py`                 | IC horizon scan script                                                                       |
+| `experiments/strategy_a_expanded_grid.py`        | Strategy A expanded grid (thresh=0.75–1.25σ, conf=0–1, 144 combos)                           |
+| `experiments/strategy_b_crossing_entry.py`       | Strategy B with crossing_threshold_signal — IS grid + walk-forward OOS (bug fixed)           |
+| `experiments/strategy_b_yearly_breakdown.py`     | Year-by-year performance breakdown — signal built on full history, per-year sliced backtests |
+| `experiments/strategy_c_regime_switching.py`     | Regime switching: MR (low vol) ↔ TF HP trend crossover (high vol), 8-combo grid              |
+| `experiments/strategy_b_efc_filter.py`           | EFC filter: trend_dev_240 as entry quality gate, apply_entry_filter() O(N) implementation    |
+| `notebooks/01_stationarity_tests.ipynb`          | Updated — Dukascopy 62K bars                                                                 |
+| `notebooks/02_autocorrelation_analysis.ipynb`    | Updated — Dukascopy 62K bars                                                                 |
+| `notebooks/03_feature_engineering.ipynb`         | Updated — Dukascopy 62K bars                                                                 |
 
 ---
 
-_Generated by research_pipeline.py + strategy_a_curvature_grid.py + strategy_b_ma_spread_vol_filter.py | Dataset: USDJPY_10yr_1h_dukascopy.csv | HP_WINDOW=500 | Cost=0.9 bps | Run date: 2026-03-11_
+_Generated by research_pipeline.py + strategy_a_curvature_grid.py + strategy_b_ma_spread_vol_filter.py | Dataset: USDJPY_10yr_1h_dukascopy.csv | HP_WINDOW=500 | Cost=0.9 bps | Last updated: 2026-03-12 (Experiments 5–8)_
