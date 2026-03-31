@@ -2,13 +2,13 @@
 
 A systematic quantitative research framework for FX trading strategy development, combining Moving Averages (MA) and Hodrick-Prescott (HP) filters for trend detection and mean-reversion opportunities on USDJPY H1 data.
 
-## 🎯 Project Overview
+## Project Overview
 
 This repository implements **Strategy 8.1**: a 5-step research pipeline that transforms hypothesis → feature engineering → validation → backtesting → production-ready strategy.
 
 **Core Hypothesis:** HP filter-based trend decomposition combined with MA crossovers can identify profitable mean-reversion and trend-following entries in FX markets.
 
-## 📊 Research Pipeline (5 Steps)
+## Research Pipeline (5 Steps)
 
 1. **Stationarity Testing** — ADF tests on 10 feature generators
 2. **Information Coefficient Analysis** — Spearman IC tests at 1-bar, 4-bar, 24-bar horizons
@@ -55,7 +55,7 @@ ma-hp-filter/
 └── research_pipeline.py         # Main orchestrator
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Environment Setup
 
@@ -132,7 +132,7 @@ Key reports:
 
 All features are **look-ahead bias free** (only use past data).
 
-## 🎓 Research Methodology
+## Research Methodology
 
 ### Signal Execution Timing
 
@@ -168,7 +168,7 @@ ic_1bar = feature.corr(returns_1bar, method='spearman')  # Predictive power
 | Mean-Rev | Low |slope|, normal vol | Counter-trend |
 | High Vol | Elevated ATR | Reduce size |
 
-## 🔬 Experiment Scripts
+## Experiment Scripts
 
 Standalone experiments in `experiments/`:
 
@@ -188,7 +188,7 @@ python experiments/strategy_c_regime_switching.py
 
 Each script is self-contained with its own grid search + backtest.
 
-## 📊 Backtest Engine
+## Backtest Engine
 
 **Design Principle:** Strategy-agnostic. Engine has zero knowledge of indicators.
 
@@ -215,7 +215,7 @@ print(results['max_drawdown'])  # Worst peak-to-trough
 
 See `docs/backtest_spec.md` for full specification.
 
-## 🛠️ Production Integration
+## Production Integration
 
 ### MT5 Live Trading
 
@@ -245,7 +245,7 @@ sizer = VolatilityScaler(
 position_size = sizer.calculate(atr=atr_value, account_balance=100000)
 ```
 
-## 📝 Key Reports
+## Key Reports
 
 1. **Stationarity Analysis** (`reports/stationarity_analysis.md`)
    - ADF test results for all features
@@ -283,7 +283,7 @@ strategy:
   hp_lambda: 129600
 ```
 
-## 🧪 Testing
+## Testing
 
 Run unit tests:
 
@@ -301,7 +301,7 @@ df = loader.load("2020-01-01", "2023-12-31")
 loader.validate(df)  # Checks for gaps, duplicates
 ```
 
-## 📚 Documentation
+## Documentation
 
 - [Backtest Specification](docs/backtest_spec.md) — Execution model, signal conventions
 - [Environment Setup](docs/environment_setup.md) — Python dependencies, MT5 setup
@@ -320,7 +320,7 @@ This is a research repository. To extend:
 
 This code is for **research purposes only**. No warranty is provided. Live trading involves risk of capital loss. Always paper-trade first.
 
-## 📄 License
+## License
 
 MIT License (or specify your license)
 
